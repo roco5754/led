@@ -81,13 +81,15 @@ float behaviorValueSineWave () {
   return colorValue;
 }
 
-float behaviorValuePulse (float pulse_frequency_hz) {
+float behaviorValuePulse (float pulse_frequency_hz, float min_value, float max_value) {
   float system_time_s = (float)millis()/1000;
   // Serial.print(system_time_s);
   // Serial.print("\n");
+  float amplitude = (max_value - min_value)/2;
+  float offset = amplitude + min_value;
 
-  float colorValue = 0.5 * sin(2 * system_time_s) + 0.5;
-  return colorValue/2;
+  float colorValue =  amplitude * sin(pulse_frequency_hz * system_time_s) + offset;
+  return colorValue;
   // if (colorValue > 0) {
   //   return 0.4;
   // }
@@ -177,12 +179,14 @@ void runProcessSectionalPulse() {
 }
 
 void runProcessFullBlink () {
-  float value = behaviorValuePulse(90);
+  float value = behaviorValuePulse(0.5, 0.1, 0.3);
+  //  Serial.print(value);
+  //  Serial.print("\n");
 
-  uint8_t hue = 255;
+  float hue = behaviorValuePulse(0.2, 140, 262);
   float saturation = 1.0;
 
-  rgb_color color = hsvToRgb(hue , saturation * 255, value * 255);
+  rgb_color color = hsvToRgb(hue, saturation * 255, value * 255);
   for(uint16_t i = FIRST_LED; i < LED_COUNT; i++) {
     colors[i] = color;
   }
