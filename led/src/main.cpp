@@ -13,8 +13,8 @@ rgb_color colors[LED_COUNT];
 #define X_PIXEL_COUNT 10
 #define Y_PIXEL_COUNT 3
 
-#define PULSE_FREQUENCY 0.5 // Hz
-#define SECTION_FREQUENCY 10 // Hz
+#define PULSE_FREQUENCY 100 // Hz
+#define SECTION_FREQUENCY 100 // Hz
 
 // Converts a color from HSV to RGB.
 // h is hue, as a number between 0 and 360.
@@ -81,12 +81,36 @@ float currentColorValue () {
   return colorValue;
 }
 
-float currentSection () {
+int currentSection () {
   unsigned long system_time_s = millis()/1000;
   float sectionFloat = 2 * sin(SECTION_FREQUENCY * system_time_s) + 2;
   // Serial.print("value=");
   // Serial.print(colorValue);
   return floor(sectionFloat);
+}
+
+int indexedSection (int x, int y) {
+  int section[] = { 0, 0 };
+  sectionFromCoordinate(section, x, y);
+
+  int indexedSection = 0;
+   if (section[0] == 0 &&
+      section[1] == 0) {
+          indexedSection = 0;
+   }
+   else if (section[0] == 1 &&
+      section[1] == 0) {
+     indexedSection = 1;
+
+   }
+   else if (section[0] == 0 &&
+      section[1] == 1) {
+     indexedSection = 3;
+   }
+   else {
+     indexedSection = 2;
+   }
+   return indexedSection;
 }
 
 void setup()
@@ -132,8 +156,9 @@ for(uint16_t y = 0; y < Y_PIXEL_COUNT; y++)
 
      int arrayIndex = arrayIndexFromScreenCoordinates(x,y);
      float temp_value = 0;
-     int section[] = { 0, 0 };
-     sectionFromCoordinate(section, x, y);
+
+     int indexOfSection = indexedSection(x,y);
+
 
     //  Serial.print("array_index=");
     //  Serial.print(arrayIndex);
@@ -152,26 +177,9 @@ for(uint16_t y = 0; y < Y_PIXEL_COUNT; y++)
     // Serial.print("\n");
 
 
-    int indexedSection = 0;
-     if (section[0] == 0 &&
-        section[1] == 0) {
-            indexedSection = 0;
-     }
-     else if (section[0] == 1 &&
-        section[1] == 0) {
-       indexedSection = 1;
 
-     }
-     else if (section[0] == 0 &&
-        section[1] == 1) {
-       indexedSection = 3;
-
-     }
-     else {
-       indexedSection = 2;
-     }
     //  temp_value = 0.33;
-     if (indexedSection == current_section_to_illuminate) {
+     if (indexOfSection == current_section_to_illuminate) {
        temp_value = value;
      }
     //  Serial.print("temp_value=");
@@ -179,7 +187,8 @@ for(uint16_t y = 0; y < Y_PIXEL_COUNT; y++)
     //  Serial.print("\n");
     //  Serial.print("\n");
 
-     colors[arrayIndex] = hsvToRgb(hue, saturation * 255, temp_value * 255);
+     colors[arrayIndex] = hsvToRgb(hue , saturation * 255, temp_value * 255);
+
    }
  }
 
