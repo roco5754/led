@@ -73,16 +73,29 @@ void sectionFromCoordinate(int arr[], int x, int y)
   arr[1] = section_y;
 }
 
-float currentColorValue () {
-  unsigned long system_time_s = millis()/1000;
-  float colorValue = 0.5 * sin(PULSE_FREQUENCY * system_time_s) + 0.5;
+float behaviorValueSineWave () {
+  unsigned long system_time_s = (float)millis()/1000;
+  float colorValue = 0.5 * sin(0.1 * system_time_s) + 0.5;
   // Serial.print("value=");
   // Serial.print(colorValue);
   return colorValue;
 }
 
+float behaviorValuePulse (float pulse_frequency_hz) {
+  float system_time_s = (float)millis()/1000;
+  // Serial.print(system_time_s);
+  // Serial.print("\n");
+
+  float colorValue = 0.5 * sin(2 * system_time_s) + 0.5;
+  return colorValue/2;
+  // if (colorValue > 0) {
+  //   return 0.4;
+  // }
+  // return 0;
+}
+
 int currentSection () {
-  unsigned long system_time_s = millis()/1000;
+  unsigned long system_time_s = (float)millis()/1000;
   float sectionFloat = 2 * sin(SECTION_FREQUENCY * system_time_s) + 2;
   // Serial.print("value=");
   // Serial.print(colorValue);
@@ -111,6 +124,68 @@ int indexedSection (int x, int y) {
      indexedSection = 2;
    }
    return indexedSection;
+}
+
+void runProcessSectionalPulse() {
+  float value = behaviorValueSineWave();
+  int current_section_to_illuminate = currentSection();
+  // float value = 0;
+  for(uint16_t y = 0; y < Y_PIXEL_COUNT; y++)
+   {
+     for(uint16_t x = 0; x < X_PIXEL_COUNT; x++)
+     {
+       uint8_t hue = 255;
+       float saturation = 1.0;
+
+       int arrayIndex = arrayIndexFromScreenCoordinates(x,y);
+       float temp_value = 0;
+
+       int indexOfSection = indexedSection(x,y);
+
+
+      //  Serial.print("array_index=");
+      //  Serial.print(arrayIndex);
+      //  Serial.print("\n");
+      // Serial.print("x=");
+      // Serial.print(x);
+      // Serial.print("\n");
+      // Serial.print("y=");
+      // Serial.print(y);
+      // Serial.print("\n");
+      // Serial.print("sec_x=");
+      // Serial.print(section[0]);
+      // Serial.print("\n");
+      // Serial.print("sec_y=");
+      // Serial.print(section[1]);
+      // Serial.print("\n");
+
+
+
+      //  temp_value = 0.33;
+       if (indexOfSection == current_section_to_illuminate) {
+         temp_value = value;
+       }
+      //  Serial.print("temp_value=");
+      //  Serial.print(temp_value);
+      //  Serial.print("\n");
+      //  Serial.print("\n");
+
+       colors[arrayIndex] = hsvToRgb(hue , saturation * 255, temp_value * 255);
+
+     }
+   }
+}
+
+void runProcessFullBlink () {
+  float value = behaviorValuePulse(90);
+
+  uint8_t hue = 255;
+  float saturation = 1.0;
+
+  rgb_color color = hsvToRgb(hue , saturation * 255, value * 255);
+  for(uint16_t i = FIRST_LED; i < LED_COUNT; i++) {
+    colors[i] = color;
+  }
 }
 
 void setup()
@@ -144,53 +219,7 @@ void loop()
   //Controls the speed of the traverse
   // uint16_t time = millis() >> 2;
 
-float value = currentColorValue();
-int current_section_to_illuminate = currentSection();
-// float value = 0;
-for(uint16_t y = 0; y < Y_PIXEL_COUNT; y++)
- {
-   for(uint16_t x = 0; x < X_PIXEL_COUNT; x++)
-   {
-     uint8_t hue = 255;
-     float saturation = 1.0;
 
-     int arrayIndex = arrayIndexFromScreenCoordinates(x,y);
-     float temp_value = 0;
-
-     int indexOfSection = indexedSection(x,y);
-
-
-    //  Serial.print("array_index=");
-    //  Serial.print(arrayIndex);
-    //  Serial.print("\n");
-    // Serial.print("x=");
-    // Serial.print(x);
-    // Serial.print("\n");
-    // Serial.print("y=");
-    // Serial.print(y);
-    // Serial.print("\n");
-    // Serial.print("sec_x=");
-    // Serial.print(section[0]);
-    // Serial.print("\n");
-    // Serial.print("sec_y=");
-    // Serial.print(section[1]);
-    // Serial.print("\n");
-
-
-
-    //  temp_value = 0.33;
-     if (indexOfSection == current_section_to_illuminate) {
-       temp_value = value;
-     }
-    //  Serial.print("temp_value=");
-    //  Serial.print(temp_value);
-    //  Serial.print("\n");
-    //  Serial.print("\n");
-
-     colors[arrayIndex] = hsvToRgb(hue , saturation * 255, temp_value * 255);
-
-   }
- }
 
 //     for(uint16_t i = FIRST_LED; i < LED_COUNT; i++)
 //   {
@@ -200,8 +229,12 @@ for(uint16_t y = 0; y < Y_PIXEL_COUNT; y++)
 //       colors[i] = hsvToRgb(131, 255, 255 * 0.92);
 //   }
 
+  runProcessFullBlink();
+
   // Write the colors to the LED strip.
   ledStrip.write(colors, LED_COUNT);
+  // Serial.print(millis());
+  // Serial.print("\n");
 
-  delay(100);
+  // delay(10);
 }
