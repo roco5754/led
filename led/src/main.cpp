@@ -9,12 +9,14 @@ PololuLedStrip<12> ledStrip;
 #define LED_COUNT 60
 rgb_color colors[LED_COUNT];
 
-#define FIRST_LED 13
-#define X_PIXEL_COUNT 10
-#define Y_PIXEL_COUNT 3
+#define FIRST_LED 0
+#define X_PIXEL_COUNT 8
+#define Y_PIXEL_COUNT 1
 
 #define PULSE_FREQUENCY 100 // Hz
 #define SECTION_FREQUENCY 100 // Hz
+
+#define BASE_MICROPHONE_NOISE_V 0.1
 
 // Converts a color from HSV to RGB.
 // h is hue, as a number between 0 and 360.
@@ -178,15 +180,100 @@ void runProcessSectionalPulse() {
    }
 }
 
-void runProcessFullBlink () {
-  float value = behaviorValuePulse(0.5, 0.1, 0.3);
-  //  Serial.print(value);
-  //  Serial.print("\n");
+int currentMode = 1;
+void skipToNextMode () {
+  //0 =  lights off
+  //1 = sine value Controls
+  //2 = microphone value Controls
+  currentMode++;
+  if (currentMode > 2) {
+    currentMode = 1;
+  }
+}
 
-  float hue = behaviorValuePulse(0.2, 140, 262);
-  float saturation = 1.0;
+void toggleLights () {
+  if (currentMode == 0) {
+    currentMode = 1;
+  } else {
+    currentMode = 0;
+  }
+}
 
-  rgb_color color = hsvToRgb(hue, saturation * 255, value * 255);
+const int sampleWindow = 100; // Sample window width in mS (250 mS = 4Hz)
+unsigned int knock;
+bool lightOn = true;
+double volts = 0;
+float averageSoundVoltage = 0;
+void processMicrophoneData () {
+  unsigned long start= millis();  // Start of sample window
+ unsigned int peakToPeak = 0;   // peak-to-peak level
+
+ unsigned int signalMax = 0;
+ unsigned int signalMin = 1024;
+
+ // collect data for 250 miliseconds
+ while (millis() - start < sampleWindow)
+ {
+   knock = analogRead(0);
+      if (knock < 1024)  //This is the max of the 10-bit ADC so this loop will include all readings
+      {
+         if (knock > signalMax)
+         {
+           signalMax = knock;  // save just the max levels
+         }
+      else if (knock < signalMin)
+        {
+         signalMin = knock;  // save just the min levels
+         }
+     }
+ }
+ peakToPeak = signalMax - signalMin;  // max - min = peak-peak amplitude
+ volts = (peakToPeak * 3.3) / 1024;  // convert to volts
+ averageSoundVoltage = (averageSoundVoltage + volts)/2;
+ Serial.print("volts=");
+ Serial.print(volts);
+ Serial.print("\n");
+ if (volts > 1.5) {
+   toggleLights();
+   return;
+ } else if (currentMode > 0) {
+   if (averageSoundVoltage < 2 * BASE_MICROPHONE_NOISE_V) {
+     currentMode = 1;
+   } else {
+     currentMode = 2;
+   }
+ }
+  // Serial.print("signalMin=");
+  // Serial.print(signalMin);
+  // Serial.print("\n");
+  // Serial.print("signalMax=");
+  // Serial.print(signalMax);
+  // Serial.print("\n");
+
+}
+
+
+float updateHue () {
+  return behaviorValuePulse(0.2, 140, 262);
+}
+
+float updateSaturation () {
+  return 1.0;
+}
+
+float updateValue () {
+  if (currentMode == 0) {
+    return 0;
+  } else if (currentMode == 1) {
+    return behaviorValuePulse(0.5, 0.1, 0.3);
+  } else {
+    return volts;
+  }
+
+}
+
+void updateLighting () {
+  rgb_color color = hsvToRgb(updateHue(), updateSaturation() * 255, updateValue() * 255);
   for(uint16_t i = FIRST_LED; i < LED_COUNT; i++) {
     colors[i] = color;
   }
@@ -232,13 +319,13 @@ void loop()
 // //      colors[i] = rgb_color(4, 0, 255);
 //       colors[i] = hsvToRgb(131, 255, 255 * 0.92);
 //   }
+processMicrophoneData();
+Serial.print("mode=");
+Serial.print(currentMode);
+Serial.print("\n");
+updateLighting();
 
-  runProcessFullBlink();
+// Write the colors to the LED strip.
+ledStrip.write(colors, LED_COUNT);
 
-  // Write the colors to the LED strip.
-  ledStrip.write(colors, LED_COUNT);
-  // Serial.print(millis());
-  // Serial.print("\n");
-
-  // delay(10);
 }
