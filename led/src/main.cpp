@@ -6,12 +6,13 @@
 PololuLedStrip<12> ledStrip;
 
 // Create a buffer for holding the colors (3 bytes per color).
-#define LED_COUNT 60
-rgb_color colors[LED_COUNT];
-
 #define FIRST_LED 0
 #define X_PIXEL_COUNT 8
-#define Y_PIXEL_COUNT 1
+#define Y_PIXEL_COUNT 4
+#define LED_COUNT X_PIXEL_COUNT * Y_PIXEL_COUNT
+rgb_color colors[LED_COUNT];
+
+
 
 #define PULSE_FREQUENCY 100 // Hz
 #define SECTION_FREQUENCY 100 // Hz
@@ -84,6 +85,21 @@ float behaviorValueSineWave () {
 }
 
 float behaviorValuePulse (float pulse_frequency_hz, float min_value, float max_value) {
+  float system_time_s = (float)millis()/1000;
+  // Serial.print(system_time_s);
+  // Serial.print("\n");
+  float amplitude = (max_value - min_value)/2;
+  float offset = amplitude + min_value;
+
+  float colorValue =  amplitude * sin(pulse_frequency_hz * system_time_s) + offset;
+  return colorValue;
+  // if (colorValue > 0) {
+  //   return 0.4;
+  // }
+  // return 0;
+}
+
+float behaviorValueSaturation(float pulse_frequency_hz, float min_value, float max_value) {
   float system_time_s = (float)millis()/1000;
   // Serial.print(system_time_s);
   // Serial.print("\n");
@@ -230,10 +246,10 @@ void processMicrophoneData () {
  peakToPeak = signalMax - signalMin;  // max - min = peak-peak amplitude
  volts = (peakToPeak * 3.3) / 1024;  // convert to volts
  averageSoundVoltage = (averageSoundVoltage + volts)/2;
- Serial.print("volts=");
- Serial.print(volts);
- Serial.print("\n");
- if (volts > 1.5) {
+ // Serial.print("volts=");
+ // Serial.print(volts);
+ // Serial.print("\n");
+ if (volts > 2) {
    toggleLights();
    return;
  } else if (currentMode > 0) {
@@ -254,7 +270,7 @@ void processMicrophoneData () {
 
 
 float updateHue () {
-  return behaviorValuePulse(0.2, 140, 262);
+  return behaviorValuePulse(0.05, 1, 360);
 }
 
 float updateSaturation () {
@@ -272,17 +288,43 @@ float updateValue () {
 
 }
 
-void updateLighting () {
+void updateLightingWithPatternFull () {
   rgb_color color = hsvToRgb(updateHue(), updateSaturation() * 255, updateValue() * 255);
   for(uint16_t i = FIRST_LED; i < LED_COUNT; i++) {
     colors[i] = color;
   }
 }
 
+uint16_t currentLED = 0;
+void updateLightingWithPatternRun () {
+  rgb_color color = hsvToRgb(updateHue(), updateSaturation() * 255, updateValue() * 255);
+  rgb_color blackout = hsvToRgb(0, 0, 0);
+  for(uint16_t i = FIRST_LED; i < LED_COUNT; i++) {
+    rgb_color lightColor;
+    if (i == currentLED) {
+      lightColor = color;
+    } else {
+      lightColor = blackout;
+    }
+    colors[i] = lightColor;
+  }
+  colors[currentLED] = color;
+  if (currentLED == LED_COUNT) {
+    currentLED = 0;
+  } else {
+    currentLED++;
+  }
+
+
+
+}
+
+int ledPin =  13;    // LED connected to digital pin 13
 void setup()
 {
   Serial.begin(9600);
   Serial.println("My Sketch has started");
+  pinMode(ledPin, OUTPUT);
 
 // int x = 9;
 // int y = 1;
@@ -304,6 +346,7 @@ void setup()
 }
 
 
+int incomingByte = 0;	// for incoming serial data
 void loop()
 {
   // Update the colors.
@@ -319,11 +362,28 @@ void loop()
 // //      colors[i] = rgb_color(4, 0, 255);
 //       colors[i] = hsvToRgb(131, 255, 255 * 0.92);
 //   }
+if (Serial.available() > 0) {
+  // read the incoming byte:
+  Serial.print("serial avaliable");
+  // Serial.print(currentMode);
+  Serial.print("\n");
+  incomingByte = Serial.read();
+  Serial.print(incomingByte);
+  Serial.print("\n");
+  if(incomingByte == 105){
+    digitalWrite(ledPin, HIGH);
+  }
+  else if(incomingByte == 111){
+    digitalWrite(ledPin, LOW);
+  }
+}
+
 processMicrophoneData();
-Serial.print("mode=");
-Serial.print(currentMode);
-Serial.print("\n");
-updateLighting();
+// Serial.print("mode=");
+// Serial.print(currentMode);
+// Serial.print("\n");
+updateLightingWithPatternFull();
+// updateLightingWithPatternRun();
 
 // Write the colors to the LED strip.
 ledStrip.write(colors, LED_COUNT);
